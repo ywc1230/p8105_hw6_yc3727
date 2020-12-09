@@ -139,7 +139,7 @@ There appears to be no missing data in this dataset. I've converted data types t
 model_fit = lm(bwt ~ babysex + gaweeks + parity + ppwt + wtgain + momage, data = baby_df)
 ```
 
-I included maternal factors (number of live births prior to this pregnancy,mother’s pre-pregnancy weight, mother's weight gain during pregnancy, and mother's age at delivery) because I thought health conditions and characteristics of mothers before and during pregnancy may directly affect the baby's birthweight. 
+I included maternal factors (number of live births prior to this pregnancy,mother’s pre-pregnancy weight, mother's weight gain during pregnancy, and mother's age at delivery) because based on recent publications, it appears that health conditions and characteristics of mothers before and during pregnancy may directly affect the baby's birthweight. 
 
 ### Show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
 
@@ -189,7 +189,8 @@ cv_df %>%
   )
 
 ```
-Based on these results, the model that I proposed has the highest RMSE values compared to the main effects and interaction models. Therefore, it appears that the interaction model is the best fit for this dataset because lower RMSE values indicate better fit.  
+
+Based on these results, the model that I proposed has the highest RMSE values compared to the main effects and interaction models. This could be due to the fact that my model mainly included parental factors. If I included more factors directly related to baby's birthweight such as baby's head circumference at birth, my model might have performed better. In fact, it appears that the interaction model is the best fit for this dataset because lower RMSE values indicate better fit.  
 
 ## Problem 3
 
@@ -247,7 +248,7 @@ log_beta =
 
 ```
 
-### Plot the distribution of your estimates
+### Plot the distribution of r squared values 
 
 ```{r}
 
@@ -262,18 +263,28 @@ r_plot =
 
 r_plot
 
+```
+
+Based on the distribution plot, it appears that the R-squared values gathered from bootstrapping seem to be approximately normally distributed or symmetric around a mean of 0.91. 
+
+### Plot the distribution of log(b0*b1)
+```{r}
+
 b_plot = 
   log_beta %>%
   ggplot(aes(x = log_b0_b1)) +
   geom_density() + 
   labs(
     title = "Distribution of log(b0*b1)", 
-    x = "R-squared", y = "Count"
+    x = "log_b0_b1", y = "Count"
   )
 
 b_plot
 
 ```
+
+Based on the distribution plot, it appears that the log(β^0∗β^1) values gathered from bootstrapping seem to be approximately normally distributed around a mean of 2.01. Compared to the distribution plot for r-squared values, it does seem a little bit more skewed to the left. 
+
 
 ### Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r^2 and log(β^0∗β^1)
 
@@ -295,5 +306,7 @@ r_squared %>%
 
 ```
 
+The 95% confidence intervals for the log(β^0∗β^1) values is (1.964469, 2.057902). 
+The 95% confidence intervals for the r-squared values is (0.8938043, 0.9270294)
 
 
