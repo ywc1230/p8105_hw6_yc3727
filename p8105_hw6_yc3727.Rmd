@@ -8,7 +8,9 @@ output: github_document
 library(tidyverse)
 library(viridis)
 library(modelr)
+library(mgcv)
 library(p8105.datasets)
+library(rnoaa)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -115,23 +117,99 @@ models_results_df %>%
 
 ```{r}
 baby_df = 
-  read_csv("./Data/birthweight.csv")
+  read_csv("./Data/birthweight.csv", na = c("", "NA", "Unknown")) %>%
+  mutate(
+    frace = as.factor(frace), 
+    mrace = as.factor(mrace),
+    babysex = as.factor(babysex),
+    malform = as.factor(malform)
+  )
+
+any(is.na(baby_df))
+
+head(baby_df)
+
 ```
+
+There appears to be no missing data in this dataset. I've converted data types that could be a combo box (e.g., sex, father's race, mother's race, and presence of malformations that could affect weight) from numeric to factors. 
 
 ### Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two.
 
 ```{r}
-model_fit = lm(bwt ~ gaweeks, data = baby_df)
+model_fit = lm(bwt ~ babysex + gaweeks + parity + ppwt + wtgain + momage, data = baby_df)
 ```
+
+I included maternal factors (number of live births prior to this pregnancy,mother’s pre-pregnancy weight, mother's weight gain during pregnancy, and mother's age at delivery) because I thought health conditions and characteristics of mothers before and during pregnancy may directly affect the baby's birthweight. 
 
 ### Show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
 
 ```{r}
 baby_df %>% 
-  modelr::add_residuals(model_fit) %>% 
-  ggplot(aes(x = gaweeks, y = resid)) + 
-  geom_point()
+  add_predictions(model_fit) %>%
+  add_residuals(model_fit) %>% 
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point() + 
+  labs(title = "Fitted values vs. Residuals", 
+      x = "Fitted values", 
+      y = "Residuals")
 ```
 
+Based on the residuals plot, the residuals appear to be relatively evenly distributed. The variance of the residuals appear to be the same for the most part. That is, the homoscedasticity assumption seems to be met and the values are concentrated in the center and distributed in a rectangular pattern (randomly scattered about a horizontal line). There doesn't seem to be any systematic pattern or clustering that is considered a violation of the homoscedasticity assumption. 
+
+### Compare your model to one using length at birth and gestational age as predictors (main effects only) and to one using head circumference, length, sex, and all interactions (including the three-way interaction) between these. 
+
+```{r error = TRUE}
+
+cv_df = 
+  crossv_mc(baby_df, 100) %>%
+  mutate(
+    model_fit = map(train, ~lm(bwt ~ babysex + gaweeks + parity + ppwt + wtgain + momage, data = baby_df)), 
+    main_fit = map(train, ~lm(bwt ~blength + gaweeks, data = baby_df)), 
+    interaction_fit = map(train, ~lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = baby_df))) %>%
+  mutate(
+    rmse_model = map2_dbl(model_fit, test, ~rmse(model = .x, data = .y)), 
+    rmse_main = map2_dbl(main_fit, test, ~rmse(model = .x, data = .y)), 
+    rmse_interaction = map2_dbl(interaction_fit, test, ~rmse(model = .x, data = .y))
+  )
+
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + 
+  geom_violin() + 
+  labs(
+    x = "Model", 
+    y = "RMSE", 
+    title = "Distribution of RMSE values for each candidate model"
+  )
+
+```
+Based on these results, the model that I proposed has the highest RMSE values compared to the main effects and interaction models. Therefore, it appears that the interaction model is the best fit for this dataset because lower RMSE values indicate better fit.  
+
 ## Problem 3
+
+
+```{r error = TRUE}
+
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+
+head(weather_df)
+
+```
+
 
