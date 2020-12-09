@@ -193,7 +193,7 @@ Based on these results, the model that I proposed has the highest RMSE values co
 
 ## Problem 3
 
-
+### Load the data
 ```{r error = TRUE}
 
 weather_df = 
@@ -211,5 +211,89 @@ weather_df =
 head(weather_df)
 
 ```
+
+### Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of r^2 and log(β^0∗β^1)
+
+```{r}
+
+bootstrap_df = 
+  weather_df %>%
+  modelr::bootstrap(n = 5000) %>% 
+  mutate(
+    models = map(strap, ~lm(tmax ~ tmin, data = .x) ),
+    results_r = map(models, broom::glance), 
+    results_b = map(models, broom::tidy)) %>%
+  janitor::clean_names()
+
+r_squared = 
+  bootstrap_df %>%
+  select(-strap, -models) %>% 
+  unnest(results_r) %>% 
+  janitor::clean_names() %>%
+  select(id, r_squared)
+
+log_beta = 
+  bootstrap_df %>%
+  select(-strap, -models) %>% 
+  unnest(results_b) %>% 
+  select(id, term, estimate) %>%
+  pivot_wider(
+    names_from = term, 
+    values_from = estimate)%>%
+  janitor::clean_names() %>%
+  mutate(
+    log_b0_b1 = log(tmin*intercept)
+  )
+
+```
+
+### Plot the distribution of your estimates
+
+```{r}
+
+r_plot = 
+  r_squared %>%
+  ggplot(aes(x = r_squared)) +
+  geom_density() + 
+  labs(
+    title = "Distribution of r-squared", 
+    x = "R-squared", y = "Count"
+  )
+
+r_plot
+
+b_plot = 
+  log_beta %>%
+  ggplot(aes(x = log_b0_b1)) +
+  geom_density() + 
+  labs(
+    title = "Distribution of log(b0*b1)", 
+    x = "R-squared", y = "Count"
+  )
+
+b_plot
+
+```
+
+### Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r^2 and log(β^0∗β^1)
+
+```{r}
+
+log_beta %>%
+  summarize(
+    ci_lower = quantile(log_b0_b1, 0.025), 
+    ci_upper = quantile(log_b0_b1, 0.975)
+  ) %>%
+  knitr::kable()
+
+r_squared %>%
+  summarize(
+    ci_lower = quantile(r_squared, 0.025), 
+    ci_upper = quantile(r_squared, 0.975)
+  ) %>%
+  knitr::kable()
+
+```
+
 
 
